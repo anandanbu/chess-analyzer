@@ -7,10 +7,10 @@ import LoadingScreen from "./components/LoadingScreen";
 
 const API_URL = process.env.REACT_APP_API_URL || "https://chess-analyzer-backend.onrender.com";
 
-// Configure axios with timeout
+// Configure axios with LONGER timeout for Render free tier cold starts
 const axiosInstance = axios.create({
   baseURL: API_URL,
-  timeout: 60000, // 60 seconds timeout
+  timeout: 120000, // 120 seconds timeout for cold start
 });
 
 function App() {
@@ -52,6 +52,9 @@ function App() {
         } else if (err.response?.status === 500) {
           msg = "Backend error. Please try again later.";
         }
+      } else if (err.code === 'ECONNABORTED') {
+        // Timeout error
+        msg = "Server is taking too long to respond. It might be a cold start on the free tier. Please wait and retry.";
       } else if (err.request) {
         // Request was made but no response (network issue)
         msg = "Cannot connect to backend. The server might be starting up. Please wait a moment and try again.";
@@ -79,7 +82,7 @@ function App() {
       const res = await axiosInstance.post(
         `/generate-pdf`,
         data,
-        { responseType: "blob" }
+        { responseType: "blob", timeout: 120000 }
       );
 
       const url = window.URL.createObjectURL(new Blob([res.data], { type: "application/pdf" }));
@@ -178,7 +181,7 @@ function App() {
               <span className="error-icon">⚠</span>
               <div style={{ flex: 1 }}>
                 <span>{error}</span>
-                {retryCount < 2 && (
+                {retryCount < 3 && (
                   <button
                     onClick={handleRetry}
                     style={{
