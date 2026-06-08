@@ -3,6 +3,8 @@ const ecoMap = require("./ecoMap");
 
 function parseGame(game, username) {
   try {
+    if (!game.pgn) return null;
+
     const chess = new Chess();
     chess.loadPgn(game.pgn);
 
@@ -10,6 +12,8 @@ function parseGame(game, username) {
 
     // Determine player's color
     const playerColor =
+      game.white &&
+      game.white.username &&
       game.white.username.toLowerCase() === username.toLowerCase()
         ? "white"
         : "black";
@@ -17,9 +21,9 @@ function parseGame(game, username) {
     // Determine result
     let result = "draw";
 
-    if (game.white.result === "win") {
+    if (game.white && game.white.result === "win") {
       result = playerColor === "white" ? "win" : "loss";
-    } else if (game.black.result === "win") {
+    } else if (game.black && game.black.result === "win") {
       result = playerColor === "black" ? "win" : "loss";
     }
 
@@ -36,7 +40,6 @@ function parseGame(game, username) {
   }
 }
 
-// ✅ Extract Opening (with ECO mapping)
 function extractOpening(pgn) {
   // Try actual opening name first
   const openingMatch = pgn.match(/\[Opening "([^"]+)"\]/);
@@ -47,12 +50,8 @@ function extractOpening(pgn) {
   if (ecoMatch) {
     const eco = ecoMatch[1];
 
-    // Use mapped name if available
-    if (ecoMap[eco]) {
-      return ecoMap[eco];
-    }
+    if (ecoMap[eco]) return ecoMap[eco];
 
-    // Fallback grouping (cleaner than raw ECO codes)
     if (eco.startsWith("B")) return "Semi-Open Game";
     if (eco.startsWith("C")) return "Open Game";
     if (eco.startsWith("D")) return "Queen's Pawn Game";
@@ -65,10 +64,9 @@ function extractOpening(pgn) {
   return "Unknown";
 }
 
-// ✅ Extract first move (for vs e4 / d4)
 function getFirstMove(pgn) {
-  const match = pgn.match(/1\.\s([^\s]+)/);
-  return match ? match[1] : null;
+  const match = pgn.match(/1\.\s*([^\s{]+)/);
+  return match ? match[1].toLowerCase() : null;
 }
 
 module.exports = { parseGame };
