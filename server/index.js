@@ -20,6 +20,10 @@ app.get("/", (req, res) => {
   res.json({ status: "Chess Analyzer API Running", version: "1.0.0" });
 });
 
+app.get("/api", (req, res) => {
+  res.json({ status: "Chess Analyzer API Running", version: "1.0.0" });
+});
+
 // ANALYZE ROUTE
 app.post("/analyze", async (req, res) => {
   try {
@@ -277,3 +281,6 @@ const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
   console.log(`Chess Analyzer server running on port ${PORT}`);
 });
+
+// Export for Vercel
+module.exports = app;
