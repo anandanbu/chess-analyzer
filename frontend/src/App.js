@@ -7,6 +7,12 @@ import LoadingScreen from "./components/LoadingScreen";
 
 const API_URL = process.env.REACT_APP_API_URL || "https://chess-analyzer-backend.onrender.com";
 
+// Configure axios with timeout
+const axiosInstance = axios.create({
+  baseURL: API_URL,
+  timeout: 60000, // 60 seconds timeout
+});
+
 function App() {
   const [username, setUsername] = useState("");
   const [data, setData] = useState(null);
@@ -14,6 +20,7 @@ function App() {
   const [error, setError] = useState(null);
   const [pdfLoading, setPdfLoading] = useState(false);
   const [activeTab, setActiveTab] = useState("overview");
+  const [retryCount, setRetryCount] = useState(0);
 
   const handleAnalyze = async (e) => {
     e.preventDefault();
@@ -22,22 +29,46 @@ function App() {
     setLoading(true);
     setError(null);
     setData(null);
+    setRetryCount(0);
 
     try {
-      const res = await axios.post(`${API_URL}/analyze`, {
+      const res = await axiosInstance.post(`/analyze`, {
         username: username.trim()
       });
       setData(res.data);
+      setError(null);
     } catch (err) {
-      const msg =
-        err.response?.data?.error ||
-        (err.response?.status === 404
-          ? "User not found on Chess.com. Check the username."
-          : "Backend is starting up (Render free tier). Please wait 30 seconds and try again.");
+      console.error("Error details:", err);
+
+      let msg = "";
+
+      // Check if there's a response from backend
+      if (err.response) {
+        // Backend responded with an error
+        msg = err.response?.data?.error || "An error occurred";
+        
+        if (err.response?.status === 404) {
+          msg = "User not found on Chess.com. Check the username.";
+        } else if (err.response?.status === 500) {
+          msg = "Backend error. Please try again later.";
+        }
+      } else if (err.request) {
+        // Request was made but no response (network issue)
+        msg = "Cannot connect to backend. The server might be starting up. Please wait a moment and try again.";
+      } else {
+        // Something happened in setting up the request
+        msg = "Error: " + err.message;
+      }
+
       setError(msg);
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleRetry = () => {
+    setRetryCount(retryCount + 1);
+    handleAnalyze({ preventDefault: () => {} });
   };
 
   const handleDownloadPDF = async () => {
@@ -45,8 +76,8 @@ function App() {
     setPdfLoading(true);
 
     try {
-      const res = await axios.post(
-        `${API_URL}/generate-pdf`,
+      const res = await axiosInstance.post(
+        `/generate-pdf`,
         data,
         { responseType: "blob" }
       );
@@ -60,6 +91,7 @@ function App() {
       link.remove();
       window.URL.revokeObjectURL(url);
     } catch (err) {
+      console.error("PDF Error:", err);
       alert("PDF generation failed. Please try again.");
     } finally {
       setPdfLoading(false);
@@ -144,7 +176,26 @@ function App() {
           {error && (
             <div className="error-banner">
               <span className="error-icon">⚠</span>
-              <span>{error}</span>
+              <div style={{ flex: 1 }}>
+                <span>{error}</span>
+                {retryCount < 2 && (
+                  <button
+                    onClick={handleRetry}
+                    style={{
+                      marginLeft: "12px",
+                      background: "rgba(255,255,255,0.1)",
+                      border: "1px solid rgba(255,255,255,0.2)",
+                      color: "#fff",
+                      padding: "4px 12px",
+                      borderRadius: "4px",
+                      cursor: "pointer",
+                      fontSize: "0.85rem"
+                    }}
+                  >
+                    Retry
+                  </button>
+                )}
+              </div>
             </div>
           )}
         </section>
